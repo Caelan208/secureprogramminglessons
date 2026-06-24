@@ -1,37 +1,56 @@
 <?php 
 session_start();
 include 'includes/db.php';
-
 //Tables aanmaken
 include 'includes/userTable.php';
 include 'includes/transactionTable.php';
-
+$maxLoginAttempts = 5;
+$lockoutDuration = 300; // seconden
+if (!isset($_SESSION['login_attempts'])) $_SESSION['login_attempts'] = 0;
+if (!isset($_SESSION['lockout_until'])) $_SESSION['lockout_until'] = 0;
+$lockedOut = $_SESSION['lockout_until'] > time();
+function isPasswordHash(string $password): bool { return password_get_info($password)['algo'] !== 0; }
 //Controleer of post is geset
 if($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Gebruikersnaam en wachtwoord uit post halen
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-
-    // kwetsbaar voor SQL injectie
-    $stmt = $pdo->prepare("SELECT * FROM user WHERE username = ? AND password = ?");
-    $stmt->execute([$username, $password]);
-    $user = $stmt->fetch();
-
-    // Controleer of er een rij is gevonden
-    if($user) {
-        // Gebruiker is ingelogd
-        $_SESSION['loggedin'] = true;
-        $_SESSION['username'] = $username;
-        $_SESSION['user'] = $user;
-
-        header("location: dashboard.php");
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    if ($lockedOut) {
+        $remaining = max(0, $_SESSION['lockout_until'] - time());
+        $error = "Te veel mislukte inlogpogingen. Probeer het opnieuw over " . ceil($remaining / 60) . " minuten.";
+    } elseif ($username === '' || $password === '') {
+        $error = "Vul zowel gebruikersnaam als wachtwoord in.";
     } else {
-        // Gebruiker is niet ingelogd
-        $error = "Gebruikersnaam of wachtwoord is onjuist";
+        $stmt = $pdo->prepare("SELECT * FROM user WHERE username = ?");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch();
+        $loginSuccess = false;
+        if ($user) {
+            $loginSuccess = isPasswordHash($user['password']) ? password_verify($password, $user['password']) : hash_equals($user['password'], $password);
+            if ($loginSuccess && (!isPasswordHash($user['password']) || password_needs_rehash($user['password'], PASSWORD_DEFAULT))) {
+                $newHash = password_hash($password, PASSWORD_DEFAULT);
+                $update = $pdo->prepare("UPDATE user SET password = ? WHERE id = ?");
+                $update->execute([$newHash, $user['id']]);
+            }
+        }
+        if ($loginSuccess) {
+            $_SESSION['loggedin'] = true;
+            $_SESSION['username'] = $username;
+            $_SESSION['user'] = $user;
+            $_SESSION['login_attempts'] = 0;
+            $_SESSION['lockout_until'] = 0;
+            header("location: dashboard.php");
+            exit;
+        }
+        $_SESSION['login_attempts']++;
+        if ($_SESSION['login_attempts'] >= $maxLoginAttempts) {
+            $_SESSION['lockout_until'] = time() + $lockoutDuration;
+            $error = "Te veel mislukte inlogpogingen. Je bent tijdelijk geblokkeerd.";
+        } else {
+            $remaining = $maxLoginAttempts - $_SESSION['login_attempts'];
+            $error = "Gebruikersnaam of wachtwoord is onjuist. Je hebt $remaining pogingen over.";
+        }
     }
-
 }
-
 ?>
 
 <!DOCTYPE html>

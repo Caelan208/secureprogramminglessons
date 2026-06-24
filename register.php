@@ -1,24 +1,30 @@
 <?php
 session_start();
 include 'includes/db.php';
-
+$minPasswordLength = 8;
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-    $passwordcheck = $_POST['passwordcheck'];
-
-    if ($password == $passwordcheck) {
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $passwordcheck = $_POST['passwordcheck'] ?? '';
+    if ($username === '' || $password === '' || $passwordcheck === '') {
+        $error = "Vul alle velden in.";
+    } elseif ($password !== $passwordcheck) {
+        $error = "De wachtwoorden komen niet overeen";
+    } elseif (!preg_match('/^[A-Za-z0-9_]{3,20}$/', $username)) {
+        $error = "Gebruikersnaam mag alleen letters, cijfers en _ bevatten en moet 3 tot 20 tekens lang zijn.";
+    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{' . $minPasswordLength . ',}$/', $password)) {
+        $error = "Wachtwoord moet minimaal $minPasswordLength tekens bevatten en ten minste één kleine letter, één hoofdletter en één cijfer.";
+    } else {
         $stmt = $pdo->prepare("SELECT * FROM user WHERE username = ?");
         $stmt->execute([$username]);
         if ($stmt->rowCount() == 0) {
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("INSERT INTO user (username, password, balance, isAdmin) VALUES (?, ?, 100, 0)");
-            $stmt->execute([$username, $password]);
+            $stmt->execute([$username, $passwordHash]);
             $success = "Je account is aangemaakt, je kunt nu inloggen";
         } else {
             $error = "Deze gebruikersnaam is al in gebruik";
         }
-    } else {
-        $error = "De wachtwoorden komen niet overeen";
     }
 }
 
