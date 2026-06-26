@@ -2,7 +2,7 @@
 session_start();
 include 'includes/db.php';
 
-if(!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true){
+if(!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['user']['isAdmin']) || $_SESSION['user']['isAdmin'] != 1){
     header("location: index.php");
     exit;
 }
