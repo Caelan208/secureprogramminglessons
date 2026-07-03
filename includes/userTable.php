@@ -12,9 +12,9 @@ if ($checkTable->rowCount() == 0) {
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci");
 
-    // Voeg de standaardgebruikers toe met gehashte wachtwoorden
+    // Voeg de standaardgebruikers toe met gehashte wachtwoorden (VEILIG)
     $insertUsers = [
-        ['Admin', password_hash('AlfaBankAdminAccount', PASSWORD_DEFAULT), 1000.00, 0],
+        ['Admin', password_hash('AlfaBankAdminAccount', PASSWORD_DEFAULT), 1000.00, 1],
         ['FerryKuhlman', password_hash('12345678', PASSWORD_DEFAULT), 1255.36, 0],
         ['Han2002', password_hash('password', PASSWORD_DEFAULT), 23424.84, 0],
         ['RoyBos', password_hash('qwerty', PASSWORD_DEFAULT), 9.23, 0],
